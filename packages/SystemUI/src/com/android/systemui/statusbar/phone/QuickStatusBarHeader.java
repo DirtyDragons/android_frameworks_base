@@ -1,3 +1,4 @@
+
 /*
  * Copyright (C) 2015 The Android Open Source Project
  *
@@ -35,6 +36,7 @@ import android.os.UserHandle;
 import android.provider.Settings;
 import android.provider.AlarmClock;
 import android.provider.CalendarContract;
+import android.provider.Settings;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.View;

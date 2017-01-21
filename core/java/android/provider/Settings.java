@@ -4186,6 +4186,15 @@ public static final String PHONE_BLACKLIST_REGEX_ENABLED = "phone_blacklist_rege
          */
         public static final String ANIM_TILE_INTERPOLATOR = "anim_tile_interpolator";
 
+         /**
+         * MediaScanner behavior on boot.
+         * 0 = enabled
+         * 1 = ask (notification)
+         * 2 = disabled
+         * @hide
+         */
+        public static final String MEDIA_SCANNER_ON_BOOT = "media_scanner_on_boot";
+
         /**
          * Immersive recents options
          *
@@ -8279,6 +8288,24 @@ public static final String PHONE_BLACKLIST_REGEX_ENABLED = "phone_blacklist_rege
         public static final String HARDWARE_KEYS_DISABLE = "hardware_keys_disable";
 
         /**
+         * Low brightness level for the advanced night mode tile
+         * @hide
+         */
+        public static final String QS_NIGHT_BRIGHTNESS_VALUE = "qs_night_brightness_value";
+
+        /**
+         * Allows to store the custom user auto brightness value
+         * @hide
+         */
+        public static final String NIGHT_AUTOBRIGHTNESS_USERVALUE = "night_autobrightness_uservalue";
+
+        /**
+         * Allows to store the custom user manual brightness value
+         * @hide
+         */
+        public static final String NIGHT_MANBRIGHTNESS_USERVALUE = "night_manbrightness_uservalue";
+
+        /**
          * Whether the device should pulse on pick up gesture.
          * @hide
          */
@@ -8678,6 +8705,13 @@ public static final String PHONE_BLACKLIST_REGEX_ENABLED = "phone_blacklist_rege
          * @hide
          */
         public static final String ADVANCED_REBOOT = "advanced_reboot";
+
+        /**
+         * Whether the reboot submenu at the power menu should trigger actions with a
+         * single click or with a confirmation.
+         * @hide
+         */
+        public static final String ADVANCED_REBOOT_ONECLICK = "advanced_reboot_oneclick";
 
         /**
          * Boolean value whether to link ringtone and notification volume

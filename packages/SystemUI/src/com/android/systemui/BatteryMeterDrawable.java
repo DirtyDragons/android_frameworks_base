@@ -16,7 +16,10 @@
 
 package com.android.systemui;
 
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
 import android.animation.ArgbEvaluator;
+import android.animation.ValueAnimator;
 import android.annotation.Nullable;
 import android.content.Context;
 import android.content.pm.PackageManager;
@@ -61,6 +64,8 @@ public class BatteryMeterDrawable extends Drawable implements
     public static final String SHOW_PERCENT_SETTING = "status_bar_show_battery_percent";
     private static final String STATUS_BAR_CHARGE_COLOR =
             Settings.Secure.STATUS_BAR_CHARGE_COLOR;
+    private static final String BATTERY_LARGE_TEXT =
+            Settings.System.BATTERY_LARGE_TEXT;
 
     private static final boolean SINGLE_DIGIT_PERCENT = false;
 
@@ -72,9 +77,10 @@ public class BatteryMeterDrawable extends Drawable implements
     public static final int BATTERY_STYLE_PORTRAIT  = 0;
     public static final int BATTERY_STYLE_SOLID     = 1;
     public static final int BATTERY_STYLE_CIRCLE    = 2;
-    public static final int BATTERY_STYLE_HIDDEN    = 3;
-    public static final int BATTERY_STYLE_LANDSCAPE = 4;
-    public static final int BATTERY_STYLE_TEXT      = 5;
+    public static final int BATTERY_STYLE_BIGCIRCLE = 3;
+    public static final int BATTERY_STYLE_HIDDEN    = 4;
+    public static final int BATTERY_STYLE_LANDSCAPE = 5;
+    public static final int BATTERY_STYLE_TEXT      = 6;
 
     private final int[] mColors;
     private final int mIntrinsicWidth;
@@ -137,6 +143,7 @@ public class BatteryMeterDrawable extends Drawable implements
     private Drawable mFrameDrawable;
     private StopMotionVectorDrawable mLevelDrawable;
     private Drawable mBoltDrawable;
+    private ValueAnimator mAnimator;
 
     private int mTextGravity;
 
@@ -241,6 +248,9 @@ public class BatteryMeterDrawable extends Drawable implements
         mContext.getContentResolver().registerContentObserver(
                 CMSettings.System.getUriFor(CMSettings.System.STATUS_BAR_BATTERY_STYLE),
                 false, mSettingObserver);
+        mContext.getContentResolver().registerContentObserver(
+                Settings.System.getUriFor(BATTERY_LARGE_TEXT),
+                false, mSettingObserver);
         updateShowPercent();
         updateChargeColor();
         mBatteryController.addStateChangedCallback(this);
@@ -275,6 +285,10 @@ public class BatteryMeterDrawable extends Drawable implements
     public void onBatteryLevelChanged(int level, boolean pluggedIn, boolean charging) {
         mLevel = level;
         mPluggedIn = pluggedIn;
+
+        if (mStyle == BATTERY_STYLE_CIRCLE || mStyle == BATTERY_STYLE_BIGCIRCLE) {
+            animateCircleBattery(level, pluggedIn, charging);
+        }
 
         postInvalidate();
     }
@@ -372,6 +386,37 @@ public class BatteryMeterDrawable extends Drawable implements
         }
     }
 
+    public void animateCircleBattery(int level, boolean pluggedIn, boolean charging) {
+        if (charging) {
+            if (mAnimator != null) mAnimator.cancel();
+
+            final int defaultAlpha = mLevelDrawable.getAlpha();
+            mAnimator = ValueAnimator.ofInt(defaultAlpha, 0, defaultAlpha);
+            mAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+                @Override
+                public void onAnimationUpdate(ValueAnimator animation) {
+                    mLevelDrawable.setAlpha((int) animation.getAnimatedValue());
+                    invalidateSelf();
+                }
+            });
+            mAnimator.addListener(new AnimatorListenerAdapter() {
+                @Override
+                public void onAnimationCancel(Animator animation) {
+                    mLevelDrawable.setAlpha(defaultAlpha);
+                    mAnimator = null;
+                }
+
+                @Override
+                public void onAnimationEnd(Animator animation) {
+                    mLevelDrawable.setAlpha(defaultAlpha);
+                    mAnimator = null;
+                }
+            });
+            mAnimator.setDuration(2000);
+            mAnimator.start();
+        }
+    }
+
     public void setDarkIntensity(float darkIntensity) {
         if (darkIntensity == mOldDarkIntensity) {
             return;
@@ -452,21 +497,10 @@ public class BatteryMeterDrawable extends Drawable implements
     }
 
     private void loadBatteryDrawables(Resources res, int style) {
-        if (isThemeApplied()) {
-            try {
-                checkBatteryMeterDrawableValid(res, style);
+        try {
+            checkBatteryMeterDrawableValid(res, style);
             } catch (BatteryMeterDrawableException e) {
                 Log.w(TAG, "Invalid themed battery meter drawable, falling back to system", e);
-/*              Disable until the theme engine is brought up
-                PackageManager pm = mContext.getPackageManager();
-                try {
-                    res = pm.getThemedResourcesForApplication(mContext.getPackageName(),
-                            ThemeConfig.SYSTEM_DEFAULT);
-                } catch (PackageManager.NameNotFoundException nnfe) {
-                    // Ignore; this should not happen
-                }
-*/
-            }
         }
 
         final int drawableResId = getBatteryDrawableResourceForStyle(style);
@@ -478,12 +512,6 @@ public class BatteryMeterDrawable extends Drawable implements
         final Drawable levelDrawable = mBatteryDrawable.findDrawableByLayerId(R.id.battery_fill);
         mLevelDrawable = new StopMotionVectorDrawable(levelDrawable);
         mBoltDrawable = mBatteryDrawable.findDrawableByLayerId(R.id.battery_charge_indicator);
-    }
-
-    private boolean isThemeApplied() {
-        final ThemeConfig themeConfig = ThemeConfig.getBootTheme(mContext.getContentResolver());
-        return themeConfig != null &&
-                !ThemeConfig.SYSTEM_DEFAULT.equals(themeConfig.getOverlayForStatusBar());
     }
 
     private void checkBatteryMeterDrawableValid(Resources res, int style) {
@@ -536,6 +564,8 @@ public class BatteryMeterDrawable extends Drawable implements
                 return R.drawable.ic_battery_circle;
             case BATTERY_STYLE_SOLID:
                 return R.drawable.ic_battery_solid;
+            case BATTERY_STYLE_BIGCIRCLE:
+                return R.drawable.ic_battery_bigcircle;
             case BATTERY_STYLE_PORTRAIT:
                 return R.drawable.ic_battery_portrait;
             default:
@@ -549,6 +579,8 @@ public class BatteryMeterDrawable extends Drawable implements
                 return R.style.BatteryMeterViewDrawable_Landscape;
             case BATTERY_STYLE_CIRCLE:
                 return R.style.BatteryMeterViewDrawable_Circle;
+            case BATTERY_STYLE_BIGCIRCLE:
+                return R.style.BatteryMeterViewDrawable_Circle;
 			case BATTERY_STYLE_SOLID:
                 return R.style.BatteryMeterViewDrawable_Solid;
             case BATTERY_STYLE_PORTRAIT:
@@ -560,7 +592,7 @@ public class BatteryMeterDrawable extends Drawable implements
 
 
     private int getBoltColor() {
-        if (mStyle == BATTERY_STYLE_CIRCLE) {
+        if (mStyle == BATTERY_STYLE_CIRCLE || mStyle == BATTERY_STYLE_BIGCIRCLE) {
             updateChargeColor();
             int chargeColor = mChargeColor;
             return chargeColor;
@@ -582,13 +614,19 @@ public class BatteryMeterDrawable extends Drawable implements
         final float textSize;
         switch(mStyle) {
             case BATTERY_STYLE_CIRCLE:
-                textSize = widthDiv2 - mContext.getResources().getDisplayMetrics().density / 1.3f;
+                textSize = widthDiv2 * 1.0f;
                 break;
             case BATTERY_STYLE_LANDSCAPE:
                 textSize = widthDiv2 * 1.3f;
                 break;
+            case BATTERY_STYLE_BIGCIRCLE:
+                textSize = widthDiv2 * 1.3f;
+                break;
+            case BATTERY_STYLE_SOLID:
+                textSize = widthDiv2 * 1.0f;
+                break;
             default:
-                textSize = widthDiv2;
+                textSize = widthDiv2 * 0.9f;
                 break;
                 }
         mTextAndBoltPaint.setTextSize(textSize);
